@@ -4,8 +4,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from prompts import system_prompt
-from call_function import available_functions
-
+from call_function import available_functions, call_function
 
 def main():
     load_dotenv()
@@ -49,28 +48,23 @@ def generate_content(client, messages, verbose):
     if not response.function_calls:
         return response.text
 
-    for function_call_part in response.function_calls:
-        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+    function_responses = []
 
-# def generate_content(client, messages, verbose):
-    
-#     response = client.models.generate_content(
-#     model='gemini-2.0-flash-001', 
-#     contents=messages,
-#     config=types.GenerateContentConfig(tools=[available_functions], system_instruction=system_prompt),
-#     )
-    
-#     function_calls_object = response.candidates[0].content.parts[0].function_call
-#     text_response = response.candidates[0].content.parts[0].text
-    
-#     if verbose:
-#         print("Prompt tokens:", response.usage_metadata.prompt_token_count)
-#         print("Response tokens:", response.usage_metadata.candidates_token_count)
-#     if function_calls_object:
-#         print(f"Calling function: {function_calls_object.name}({function_calls_object.args})")
-#     elif text_response:
-#         print("Response:")
-#         print(text_response)
+    for function_call_part in response.function_calls:
+        function_call_result = call_function(response.function_calls, verbose)
+        if (
+            not function_call_result.parts
+            or not function_call_result.parts[0].function_response
+            or not function_call_result.parts[0].function_response.response
+        ):
+            raise Exception("Empty function call result")
+        
+        if verbose:
+            print(f"-> {function_call_result.parts[0].function_response.response}")
+        function_responses.append(function_call_result.parts[0])
+
+    if not function_responses:
+        raise Exception("no function responses generated, exiting.")
 
 
 if __name__ =="__main__":
